@@ -4,7 +4,11 @@
     "first_name": "Paul",
     "last_name": "Atreides",
     "username": null,
-    "email_addresses": "paul@atreides.com",
+    "primary_email_address_id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH5",
+    "email_addresses": [{
+      "email_address": "paul@atreides.com",
+      "id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH5"
+    }],
     "phone_numbers": null,
     "totp_secret": null,
     "password_digest": null,
@@ -18,7 +22,14 @@
     "first_name": "Jessica",
     "last_name": "Atreides",
     "username": null,
-    "email_addresses": "jessica@atreides.com|jessica@harkonnen.com",
+    "primary_email_address_id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH5",
+    "email_addresses": [{
+      "email_address": "jessica@atreides.com",
+      "id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH5"
+    }, {
+      "email_address": "jessica@harkonnen.com",
+      "id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH6"
+    }],
     "phone_numbers": null,
     "totp_secret": null,
     "password_digest": null,
@@ -32,7 +43,11 @@
     "first_name": null,
     "last_name": null,
     "username": null,
-    "email_addresses": "vlad@harkonnen.com",
+    "primary_email_address_id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH5",
+    "email_addresses": [{
+      "email_address": "vlad@harkonnen.com",
+      "id": "idn_2kZRVcRYtxNhDn7XlEWoKvkvLH5"
+    }],
     "phone_numbers": null,
     "totp_secret": null,
     "password_digest": "$2b$10$.rU67Fk.7/QRC6iLPFV8Eeb9w56VKAVOd9Lt5VqgERTn8KChBFLg6",
