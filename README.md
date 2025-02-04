@@ -31,9 +31,3 @@ Done importing. 4 of 6 user records imported.
 This tool consumes the export file [obtained from Clerk support by filing a ticket](https://clerk.com/docs/deployments/exporting-users#migrating-your-users-to-a-new-system), which can include hashed passwords.
 
 Note that the script will exit with an error if any custom password hashes are present.
-
-## Users with multiple passwords
-
-Clerk's export file returns all email addresses associated with the user under the `email_addresses` field. Unfortunately in the case of multiple email addresses there's no way to know which is the default without querying the Clerk API.
-
-By passing in the `--process-multi-email true` flag to this tool, the first email address in the list will be used as the primary email address when creating the WorkOS user.
