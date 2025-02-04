@@ -1,12 +1,13 @@
-import { WorkOS, RateLimitExceededException } from "@workos-inc/node";
-import dotenv from "dotenv";
-import yargs from "yargs";
-import { hideBin } from "yargs/helpers";
-import Queue from "p-queue";
+import dotenv from 'dotenv';
+import Queue from 'p-queue';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
-import { ndjsonStream } from "./ndjson-stream";
-import { ClerkExportedUser } from "./clerk-exported-user";
-import { sleep } from "./sleep";
+import { RateLimitExceededException, WorkOS } from '@workos-inc/node';
+
+import { ClerkExportedUser } from './clerk-exported-user';
+import { ndjsonStream } from './ndjson-stream';
+import { sleep } from './sleep';
 
 dotenv.config();
 
@@ -20,23 +21,20 @@ const workos = new WorkOS(
         apiHostname: "localhost",
         port: 7000,
       }
-    : {},
+    : {}
 );
 
 async function findOrCreateUser(
   exportedUser: ClerkExportedUser,
-  processMultiEmail: boolean,
+  processMultiEmail: boolean
 ) {
-  // Clerk formats multiple email addresses by separating them with a pipe character
-  // We unfortunately have no way of knowing which email is the primary one, so we only use the first email
-  // if explicitly told to
-  const emailAddresses = exportedUser.email_addresses.split("|");
-  const email = emailAddresses[0];
+  const emailAddresses = exportedUser.email_addresses;
+  const primaryEmail = emailAddresses?.find(
+    (email) => email?.id === exportedUser.primary_email_address_id
+  );
 
-  if (emailAddresses.length > 1 && !processMultiEmail) {
-    console.log(
-      `Multiple email addresses found for ${exportedUser.id} and multi email processing is disabled, skipping.`,
-    );
+  if (!primaryEmail) {
+    console.error(`Primary email not found for ${exportedUser.id}`);
     return false;
   }
 
@@ -49,7 +47,7 @@ async function findOrCreateUser(
       : {};
 
     return await workos.userManagement.createUser({
-      email,
+      email: primaryEmail.email_address,
       firstName: exportedUser.first_name ?? undefined,
       lastName: exportedUser.last_name ?? undefined,
       ...passwordOptions,
@@ -60,7 +58,7 @@ async function findOrCreateUser(
     }
 
     const matchingUsers = await workos.userManagement.listUsers({
-      email: email.toLowerCase(),
+      email: primaryEmail.email_address.toLowerCase(),
     });
     if (matchingUsers.data.length === 1) {
       return matchingUsers.data[0];
@@ -71,20 +69,27 @@ async function findOrCreateUser(
 async function processLine(
   line: unknown,
   recordNumber: number,
-  processMultiEmail: boolean,
+  processMultiEmail: boolean
 ): Promise<boolean> {
   const exportedUser = ClerkExportedUser.parse(line);
+
+  if (!exportedUser.object || exportedUser.object !== "user") {
+    console.log(
+      `(${recordNumber}) Skipping non-user child record ${exportedUser.id}`
+    );
+    return false;
+  }
 
   const workOsUser = await findOrCreateUser(exportedUser, processMultiEmail);
   if (!workOsUser) {
     console.error(
-      `(${recordNumber}) Could not find or create user ${exportedUser.id}`,
+      `(${recordNumber}) Could not find or create user ${exportedUser.id}`
     );
     return false;
   }
 
   console.log(
-    `(${recordNumber}) Imported Clerk user ${exportedUser.id} as WorkOS user ${workOsUser.id}`,
+    `(${recordNumber}) Imported Clerk user ${exportedUser.id} as WorkOS user ${workOsUser.id}`
   );
 
   return true;
@@ -95,7 +100,7 @@ const MAX_CONCURRENT_USER_IMPORTS = 10;
 
 async function main() {
   const { userExport: userFilePath, processMultiEmail } = await yargs(
-    hideBin(process.argv),
+    hideBin(process.argv)
   )
     .option("user-export", {
       type: "string",
@@ -119,6 +124,7 @@ async function main() {
 
   try {
     for await (const line of ndjsonStream(userFilePath)) {
+      recordCount++;
       await queue.onSizeLessThan(MAX_CONCURRENT_USER_IMPORTS);
 
       const recordNumber = recordCount;
@@ -128,7 +134,7 @@ async function main() {
             const successful = await processLine(
               line,
               recordNumber,
-              processMultiEmail,
+              processMultiEmail
             );
             if (successful) {
               completedCount++;
@@ -141,7 +147,7 @@ async function main() {
 
             const retryAfter = (error.retryAfter ?? DEFAULT_RETRY_AFTER) + 1;
             console.warn(
-              `Rate limit exceeded. Pausing queue for ${retryAfter} seconds.`,
+              `Rate limit exceeded. Pausing queue for ${retryAfter} seconds.`
             );
 
             queue.pause();
@@ -157,7 +163,7 @@ async function main() {
     await queue.onIdle();
 
     console.log(
-      `Done importing. ${completedCount} of ${recordCount} user records imported.`,
+      `Done importing. ${completedCount} of ${recordCount} records imported.`
     );
   } finally {
   }

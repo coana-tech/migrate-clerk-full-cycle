@@ -1,6 +1,7 @@
-import fs from "fs";
-import { JSONParser } from "@streamparser/json";
-import { PassThrough } from "stream";
+import fs from 'fs';
+import { PassThrough } from 'stream';
+
+import { JSONParser } from '@streamparser/json';
 
 export async function* ndjsonStream(filePath: string): AsyncIterable<unknown> {
   const fileStream = fs.createReadStream(filePath, { encoding: "utf8" });
