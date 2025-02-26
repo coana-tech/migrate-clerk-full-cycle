@@ -1,13 +1,14 @@
-import dotenv from 'dotenv';
-import Queue from 'p-queue';
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
+import dotenv from "dotenv";
+import Queue from "p-queue";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
-import { RateLimitExceededException, WorkOS } from '@workos-inc/node';
+import { RateLimitExceededException, WorkOS } from "@workos-inc/node";
 
-import { ClerkExportedUser } from './clerk-exported-user';
-import { ndjsonStream } from './ndjson-stream';
-import { sleep } from './sleep';
+import { ClerkExportedUser } from "./clerk-exported-user";
+import { ndjsonStream } from "./ndjson-stream";
+import { sleep } from "./sleep";
+import * as fs from "fs";
 
 dotenv.config();
 
@@ -91,6 +92,14 @@ async function processLine(
   console.log(
     `(${recordNumber}) Imported Clerk user ${exportedUser.id} as WorkOS user ${workOsUser.id}`
   );
+
+  // Data which will be appended to the file.
+  let newData = `{"clerk":"${exportedUser.id}","workos":"${workOsUser.id}"},`;
+  // Append old and new id entry.
+  fs.appendFile("Output.json", newData, (err: any) => {
+    // In case of a error throw err.
+    if (err) console.error(err);
+  });
 
   return true;
 }
