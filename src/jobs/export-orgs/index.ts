@@ -5,9 +5,9 @@ import { hideBin } from "yargs/helpers";
 
 import { RateLimitExceededException, WorkOS } from "@workos-inc/node";
 
-import { ClerkExportedUser } from "./clerk-exported-user";
-import { ndjsonStream } from "./ndjson-stream";
-import { sleep } from "./sleep";
+import { ClerkExportedOrganization } from "../clerk-exported-organization";
+import { ndjsonStream } from "../../ndjson-stream";
+import { sleep } from "../../sleep";
 import * as fs from "fs";
 
 dotenv.config();
@@ -26,32 +26,21 @@ const workos = new WorkOS(
 );
 
 async function findOrCreateUser(
-  exportedUser: ClerkExportedUser,
+  exportedOrganization: ClerkExportedOrganization,
   processMultiEmail: boolean
 ) {
-  const emailAddresses = exportedUser.email_addresses;
-  const primaryEmail = emailAddresses?.find(
-    (email) => email?.id === exportedUser.primary_email_address_id
-  );
+  return true;
 
-  if (!primaryEmail) {
-    console.error(`Primary email not found for ${exportedUser.id}`);
+  if (!exportedOrganization.name) {
+    console.log(
+      `Skipping organization without a name ${exportedOrganization.id}`
+    );
     return false;
   }
 
   try {
-    const passwordOptions = exportedUser.password_digest
-      ? {
-          passwordHash: exportedUser.password_digest,
-          passwordHashType: "bcrypt" as const,
-        }
-      : {};
-
-    return await workos.userManagement.createUser({
-      email: primaryEmail.email_address,
-      firstName: exportedUser.first_name ?? undefined,
-      lastName: exportedUser.last_name ?? undefined,
-      ...passwordOptions,
+    return await workos.organizations.createOrganization({
+      name: exportedOrganization.name ?? "",
     });
   } catch (error) {
     if (error instanceof RateLimitExceededException) {
@@ -72,29 +61,35 @@ async function processLine(
   recordNumber: number,
   processMultiEmail: boolean
 ): Promise<boolean> {
-  const exportedUser = ClerkExportedUser.parse(line);
+  const exportedOrganization = ClerkExportedOrganization.parse(line);
 
-  if (!exportedUser.object || exportedUser.object !== "user") {
+  if (
+    !exportedOrganization.object ||
+    exportedOrganization.object !== "organization"
+  ) {
     console.log(
-      `(${recordNumber}) Skipping non-user child record ${exportedUser.id}`
+      `(${recordNumber}) Skipping non-user child record ${exportedOrganization.id}`
     );
     return false;
   }
 
-  const workOsUser = await findOrCreateUser(exportedUser, processMultiEmail);
-  if (!workOsUser) {
+  const workOsOrganization = await findOrCreateUser(
+    exportedOrganization,
+    processMultiEmail
+  );
+  if (!workOsOrganization) {
     console.error(
-      `(${recordNumber}) Could not find or create user ${exportedUser.id}`
+      `(${recordNumber}) Could not find or create user ${exportedOrganization.id}`
     );
     return false;
   }
 
   console.log(
-    `(${recordNumber}) Imported Clerk user ${exportedUser.id} as WorkOS user ${workOsUser.id}`
+    `(${recordNumber}) Imported Clerk organization ${exportedOrganization.name} ${exportedOrganization.id} as WorkOS organization ${workOsOrganization}`
   );
 
   // Data which will be appended to the file.
-  let newData = `{"clerk":"${exportedUser.id}","workos":"${workOsUser.id}"},`;
+  let newData = `{"clerk":"${exportedOrganization.id}","workos":"${workOsOrganization}"},`;
   // Append old and new id entry.
   fs.appendFile("Output.json", newData, (err: any) => {
     // In case of a error throw err.
@@ -108,10 +103,10 @@ const DEFAULT_RETRY_AFTER = 10;
 const MAX_CONCURRENT_USER_IMPORTS = 10;
 
 async function main() {
-  const { userExport: userFilePath, processMultiEmail } = await yargs(
+  const { orgExport: userFilePath, processMultiEmail } = await yargs(
     hideBin(process.argv)
   )
-    .option("user-export", {
+    .option("org-export", {
       type: "string",
       required: true,
       description:
