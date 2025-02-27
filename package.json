@@ -4,7 +4,8 @@
   "type": "module",
   "bin": {
     "migrate-clerk-users": "bin/migrate-clerk-users.ts",
-    "migrate-clerk-orgs": "bin/migrate-clerk-orgs.ts"
+    "migrate-clerk-orgs": "bin/migrate-clerk-orgs.ts",
+    "migrate-clerk-org-memberships": "bin/migrate-clerk-org-memberships.ts"
   },
   "scripts": {
     "build": "tsc",
