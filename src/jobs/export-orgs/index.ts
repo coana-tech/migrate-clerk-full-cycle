@@ -25,12 +25,9 @@ const workos = new WorkOS(
     : {}
 );
 
-async function findOrCreateUser(
-  exportedOrganization: ClerkExportedOrganization,
-  processMultiEmail: boolean
+async function createOrganization(
+  exportedOrganization: ClerkExportedOrganization
 ) {
-  return true;
-
   if (!exportedOrganization.name) {
     console.log(
       `Skipping organization without a name ${exportedOrganization.id}`
@@ -46,20 +43,12 @@ async function findOrCreateUser(
     if (error instanceof RateLimitExceededException) {
       throw error;
     }
-
-    const matchingUsers = await workos.userManagement.listUsers({
-      email: primaryEmail.email_address.toLowerCase(),
-    });
-    if (matchingUsers.data.length === 1) {
-      return matchingUsers.data[0];
-    }
   }
 }
 
 async function processLine(
   line: unknown,
-  recordNumber: number,
-  processMultiEmail: boolean
+  recordNumber: number
 ): Promise<boolean> {
   const exportedOrganization = ClerkExportedOrganization.parse(line);
 
@@ -68,18 +57,15 @@ async function processLine(
     exportedOrganization.object !== "organization"
   ) {
     console.log(
-      `(${recordNumber}) Skipping non-user child record ${exportedOrganization.id}`
+      `(${recordNumber}) Skipping non-org child record ${exportedOrganization.id}`
     );
     return false;
   }
 
-  const workOsOrganization = await findOrCreateUser(
-    exportedOrganization,
-    processMultiEmail
-  );
+  const workOsOrganization = await createOrganization(exportedOrganization);
   if (!workOsOrganization) {
     console.error(
-      `(${recordNumber}) Could not find or create user ${exportedOrganization.id}`
+      `(${recordNumber}) Could not find or create organization ${exportedOrganization.id}`
     );
     return false;
   }
@@ -91,7 +77,7 @@ async function processLine(
   // Data which will be appended to the file.
   let newData = `{"clerk":"${exportedOrganization.id}","workos":"${workOsOrganization}"},`;
   // Append old and new id entry.
-  fs.appendFile("Output.json", newData, (err: any) => {
+  fs.appendFile("output-orgs.json", newData, (err: any) => {
     // In case of a error throw err.
     if (err) console.error(err);
   });
@@ -109,17 +95,15 @@ async function main() {
     .option("org-export", {
       type: "string",
       required: true,
-      description:
-        "Path to the user and password export received from Clerk support.",
-    })
-    .option("process-multi-email", {
-      type: "boolean",
-      default: false,
-      description:
-        "In the case of a user with multiple email addresses, whether to use the first email provided or to skip processing the user.",
+      description: "Path to the organization received from Clerk support.",
     })
     .version(false)
     .parse();
+
+  fs.appendFile("output-orgs.json", "[", (err: any) => {
+    // In case of a error throw err.
+    if (err) console.error(err);
+  });
 
   const queue = new Queue({ concurrency: MAX_CONCURRENT_USER_IMPORTS });
 
@@ -135,11 +119,7 @@ async function main() {
       const enqueueTask = () =>
         queue
           .add(async () => {
-            const successful = await processLine(
-              line,
-              recordNumber,
-              processMultiEmail
-            );
+            const successful = await processLine(line, recordNumber);
             if (successful) {
               completedCount++;
             }
@@ -165,6 +145,11 @@ async function main() {
     }
 
     await queue.onIdle();
+
+    fs.appendFile("output-orgs.json", "{}]", (err: any) => {
+      // In case of a error throw err.
+      if (err) console.error(err);
+    });
 
     console.log(
       `Done importing. ${completedCount} of ${recordCount} records imported.`
