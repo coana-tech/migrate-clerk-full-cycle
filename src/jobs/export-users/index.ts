@@ -5,7 +5,7 @@ import { hideBin } from "yargs/helpers";
 
 import { RateLimitExceededException, WorkOS } from "@workos-inc/node";
 
-import { ClerkExportedUser } from "../clerk-exported-user";
+import { ClerkExportedUser } from "../../schemas/clerk-exported-user";
 import { ndjsonStream } from "../../ndjson-stream";
 import { sleep } from "../../sleep";
 import * as fs from "fs";
