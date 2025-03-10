@@ -5,7 +5,8 @@
   "bin": {
     "migrate-clerk-users": "bin/migrate-clerk-users.ts",
     "migrate-clerk-orgs": "bin/migrate-clerk-orgs.ts",
-    "migrate-clerk-org-memberships": "bin/migrate-clerk-org-memberships.ts"
+    "migrate-clerk-org-memberships": "bin/migrate-clerk-org-memberships.ts",
+    "migrate-full-cycle": "bin/migrate-full-cycle.ts"
   },
   "scripts": {
     "build": "tsc",
@@ -24,6 +25,7 @@
   "dependencies": {
     "@streamparser/json": "^0.0.21",
     "@workos-inc/node": "^7.4.0",
+    "axios": "^1.8.1",
     "better-sqlite3": "^9.0.0",
     "dotenv": "^16.3.1",
     "kysely": "^0.26.3",

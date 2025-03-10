@@ -15,6 +15,17 @@ import { sleep } from "../../sleep";
 import { ClerkExportedOrgMembership } from "../../schemas/clerk-exported-org-memberships";
 import { ExportedUser } from "../../schemas/exported-user";
 
+type RoleTranslationType = {
+  [key: string]: string;
+};
+
+// replace with own role translation
+const roleTranslation: RoleTranslationType = {
+  admin: "admin",
+  basic_member: "member",
+  "org:guest": "guest",
+};
+
 dotenv.config();
 
 const USE_LOCAL_API = (process.env.NODE_ENV ?? "").startsWith("dev");
@@ -30,24 +41,22 @@ const workos = new WorkOS(
     : {}
 );
 
-async function createOrganization(
+async function createOrganizationMembership(
   exportedOrgMembership: ClerkExportedOrgMembership,
   organizationId: string,
   workOsUserId: string
 ) {
   try {
     const roleSlug =
-      exportedOrgMembership.role === "org:guest"
-        ? "guest"
-        : exportedOrgMembership.role ?? "member";
+      roleTranslation[exportedOrgMembership.role ?? "basic_member"];
 
-    console.log(organizationId, workOsUserId, roleSlug);
     return await workos.userManagement.createOrganizationMembership({
       organizationId: organizationId,
       userId: workOsUserId,
       roleSlug,
     });
   } catch (error) {
+    console.log(error, exportedOrgMembership);
     if (error instanceof RateLimitExceededException) {
       throw error;
     }
@@ -60,56 +69,66 @@ async function processLine(
   organizationId: string,
   exportedUsers: ExportedUser[]
 ): Promise<boolean> {
-  const exportedOrgMembership = ClerkExportedOrgMembership.parse(line);
+  try {
+    if (typeof line === "string") {
+      console.log(`skip line ${recordNumber} because it is a string`);
+      return false;
+    }
+    const exportedOrgMembership = ClerkExportedOrgMembership.parse(line);
 
-  if (
-    !exportedOrgMembership.object ||
-    exportedOrgMembership.object !== "organization_membership"
-  ) {
+    if (
+      !exportedOrgMembership.object ||
+      exportedOrgMembership.object !== "organization_membership"
+    ) {
+      console.log(
+        `(${recordNumber}) Skipping non-org child record ${exportedOrgMembership.id}`
+      );
+      return false;
+    }
+
+    if (
+      !exportedOrgMembership.public_user_data ||
+      !exportedOrgMembership.organization
+    ) {
+      console.error(
+        `(${recordNumber}) Skipping organization membership without user or organization ${exportedOrgMembership.id}`
+      );
+      return false;
+    }
+
+    const workOsUserId = exportedUsers.find(
+      (user) => user.clerk === exportedOrgMembership.public_user_data?.user_id
+    )?.workos;
+
+    if (!workOsUserId) {
+      console.error(
+        `(${recordNumber}) Could not find workos user for clerk user ${exportedOrgMembership.public_user_data.user_id}`
+      );
+      return false;
+    }
+
+    const workOsOrganizationMembership = await createOrganizationMembership(
+      exportedOrgMembership,
+      organizationId,
+      workOsUserId
+    );
+    if (!workOsOrganizationMembership) {
+      console.log(workOsOrganizationMembership);
+      console.error(
+        `(${recordNumber}) Could not find or create organization member ship for user clerkId: ${exportedOrgMembership.public_user_data.user_id} workOSId: ${workOsUserId} in clerk organization ${exportedOrgMembership.organization.id}`
+      );
+      return false;
+    }
+
     console.log(
-      `(${recordNumber}) Skipping non-org child record ${exportedOrgMembership.id}`
+      `(${recordNumber}) Imported Clerk organization membership for user ${exportedOrgMembership.public_user_data.user_id} in clerk org ${exportedOrgMembership.organization.id} as WorkOS organization membership ${workOsOrganizationMembership.id} in workos organisation ${organizationId}`
     );
+
+    return true;
+  } catch (error) {
+    console.error(`Error parsing line ${recordNumber}:`, error);
     return false;
   }
-
-  if (
-    !exportedOrgMembership.public_user_data ||
-    !exportedOrgMembership.organization
-  ) {
-    console.error(
-      `(${recordNumber}) Skipping organization membership without user or organization ${exportedOrgMembership.id}`
-    );
-    return false;
-  }
-
-  const workOsUserId = exportedUsers.find(
-    (user) => user.clerk === exportedOrgMembership.public_user_data?.user_id
-  )?.workos;
-
-  if (!workOsUserId) {
-    console.error(
-      `(${recordNumber}) Could not find workos user for clerk user ${exportedOrgMembership.public_user_data.user_id}`
-    );
-    return false;
-  }
-
-  const workOsOrganizationMembership = await createOrganization(
-    exportedOrgMembership,
-    organizationId,
-    workOsUserId
-  );
-  if (!workOsOrganizationMembership) {
-    console.error(
-      `(${recordNumber}) Could not find or create organization member ship for user ${exportedOrgMembership.public_user_data.user_id} in clerk organization ${exportedOrgMembership.organization.id}`
-    );
-    return false;
-  }
-
-  console.log(
-    `(${recordNumber}) Imported Clerk organization membership for user ${exportedOrgMembership.public_user_data.user_id} in clerk org ${exportedOrgMembership.organization.id} as WorkOS organization membership ${workOsOrganizationMembership.id} in workos organisation${organizationId}`
-  );
-
-  return true;
 }
 
 const DEFAULT_RETRY_AFTER = 10;
@@ -152,7 +171,6 @@ async function main() {
       exportedUsers.push(ExportedUser.parse(line));
     }
   } catch (error) {
-    console.log("Error reading exported users file");
     console.error(error);
     return;
   }

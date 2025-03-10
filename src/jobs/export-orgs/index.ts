@@ -71,11 +71,11 @@ async function processLine(
   }
 
   console.log(
-    `(${recordNumber}) Imported Clerk organization ${exportedOrganization.name} ${exportedOrganization.id} as WorkOS organization ${workOsOrganization}`
+    `(${recordNumber}) Imported Clerk organization ${exportedOrganization.name} ${exportedOrganization.id} as WorkOS organization ${workOsOrganization.id}`
   );
 
   // Data which will be appended to the file.
-  let newData = `{"clerk":"${exportedOrganization.id}","workos":"${workOsOrganization}"},`;
+  let newData = `{"clerk":"${exportedOrganization.id}","workos":"${workOsOrganization.id}"},`;
   // Append old and new id entry.
   fs.appendFile("output-orgs.json", newData, (err: any) => {
     // In case of a error throw err.

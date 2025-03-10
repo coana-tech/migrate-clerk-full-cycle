@@ -3,14 +3,21 @@ import Queue from "p-queue";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
-import { RateLimitExceededException, WorkOS } from "@workos-inc/node";
+import { RateLimitExceededException, User, WorkOS } from "@workos-inc/node";
 
 import { ClerkExportedUser } from "../../schemas/clerk-exported-user";
 import { ndjsonStream } from "../../ndjson-stream";
 import { sleep } from "../../sleep";
 import * as fs from "fs";
+import path from "path";
+import { parseArgs } from "../../parseArgs";
 
 dotenv.config();
+
+type MigratedUser = {
+  clerk: string;
+  workos: string;
+};
 
 const USE_LOCAL_API = (process.env.NODE_ENV ?? "").startsWith("dev");
 
@@ -25,10 +32,7 @@ const workos = new WorkOS(
     : {}
 );
 
-async function findOrCreateUser(
-  exportedUser: ClerkExportedUser,
-  processMultiEmail: boolean
-) {
+async function findOrCreateUser(exportedUser: ClerkExportedUser) {
   const emailAddresses = exportedUser.email_addresses;
   const primaryEmail = emailAddresses?.find(
     (email) => email?.id === exportedUser.primary_email_address_id
@@ -51,6 +55,7 @@ async function findOrCreateUser(
       email: primaryEmail.email_address,
       firstName: exportedUser.first_name ?? undefined,
       lastName: exportedUser.last_name ?? undefined,
+      externalId: exportedUser.id,
       ...passwordOptions,
     });
   } catch (error) {
@@ -61,17 +66,29 @@ async function findOrCreateUser(
     const matchingUsers = await workos.userManagement.listUsers({
       email: primaryEmail.email_address.toLowerCase(),
     });
+    // If there is a single user with the same email address, update the external ID.
     if (matchingUsers.data.length === 1) {
-      return matchingUsers.data[0];
+      try {
+        const updatedUser = await workos.userManagement.updateUser({
+          userId: matchingUsers.data[0].id,
+          externalId: exportedUser.id,
+        });
+        return updatedUser;
+      } catch (error) {
+        console.error(
+          `Error updating user ${matchingUsers.data[0].id}:`,
+          error
+        );
+        return false;
+      }
     }
   }
 }
 
 async function processLine(
   line: unknown,
-  recordNumber: number,
-  processMultiEmail: boolean
-): Promise<boolean> {
+  recordNumber: number
+): Promise<MigratedUser | boolean> {
   const exportedUser = ClerkExportedUser.parse(line);
 
   if (!exportedUser.object || exportedUser.object !== "user") {
@@ -81,7 +98,7 @@ async function processLine(
     return false;
   }
 
-  const workOsUser = await findOrCreateUser(exportedUser, processMultiEmail);
+  const workOsUser = await findOrCreateUser(exportedUser);
   if (!workOsUser) {
     console.error(
       `(${recordNumber}) Could not find or create user ${exportedUser.id}`
@@ -93,46 +110,30 @@ async function processLine(
     `(${recordNumber}) Imported Clerk user ${exportedUser.id} as WorkOS user ${workOsUser.id}`
   );
 
-  // Data which will be appended to the file.
-  let newData = `{"clerk":"${exportedUser.id}","workos":"${workOsUser.id}"},`;
-  // Append old and new id entry.
-  fs.appendFile("output-users.json", newData, (err: any) => {
-    // In case of a error throw err.
-    if (err) console.error(err);
-  });
-
-  return true;
+  return {
+    clerk: workOsUser.externalId ?? "",
+    workos: workOsUser.id,
+  };
 }
 
 const DEFAULT_RETRY_AFTER = 10;
 const MAX_CONCURRENT_USER_IMPORTS = 10;
 
 async function main() {
-  const { userExport: userFilePath, processMultiEmail } = await yargs(
-    hideBin(process.argv)
-  )
-    .option("user-export", {
-      type: "string",
-      required: true,
-      description:
-        "Path to the user and password export received from Clerk support.",
-    })
-    .option("process-multi-email", {
-      type: "boolean",
-      default: false,
-      description:
-        "In the case of a user with multiple email addresses, whether to use the first email provided or to skip processing the user.",
-    })
-    .version(false)
-    .parse();
+  const args = process.argv.slice(2);
+  console.log("args", args);
+  const { output, WORKOS_SECRET_KEY } = parseArgs(args);
 
   const queue = new Queue({ concurrency: MAX_CONCURRENT_USER_IMPORTS });
 
   let recordCount = 0;
   let completedCount = 0;
 
+  const users: MigratedUser[] = [];
+
   try {
-    for await (const line of ndjsonStream(userFilePath)) {
+    const outputPath = path.resolve(output); // Ensure absolute path
+    for await (const line of ndjsonStream("./src/files/users.json")) {
       recordCount++;
       await queue.onSizeLessThan(MAX_CONCURRENT_USER_IMPORTS);
 
@@ -140,12 +141,9 @@ async function main() {
       const enqueueTask = () =>
         queue
           .add(async () => {
-            const successful = await processLine(
-              line,
-              recordNumber,
-              processMultiEmail
-            );
-            if (successful) {
+            const successful = await processLine(line, recordNumber);
+            if (successful !== false) {
+              users.push(successful as MigratedUser);
               completedCount++;
             }
           })
@@ -171,6 +169,10 @@ async function main() {
 
     await queue.onIdle();
 
+    fs.writeFile(outputPath, JSON.stringify(users, null, 2), (err: any) => {
+      // In case of a error throw err.
+      if (err) console.error(err);
+    });
     console.log(
       `Done importing. ${completedCount} of ${recordCount} records imported.`
     );

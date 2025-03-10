@@ -7,7 +7,7 @@ For more information on migrating from Clerk to WorkOS, refer to [the docs](http
 ## Usage
 
 ```bash
-WORKOS_SECRET_KEY=sk_test_123 npx github:workos/migrate-clerk-users --help
+CLERK_SECRET_KEY=sk_test_123 WORKOS_SECRET_KEY=sk_test_123 OUTPUT_PATH_USERS=./users_output.json OUTPUT_PATH_ORGANIZATIONS=./orgs_output.json npx migrate-full-cycle
 ```
 
 Example output
@@ -18,16 +18,16 @@ Example output
 Need to install the following packages:
   github:workos/migrate-clerk-users
 Ok to proceed? (y) y
-Importing users from example-input.json
-(1) Imported user paul@atreides.com as WorkOS User user_01HCYZ09NQHZ4X1ZRVZ3V09WWW
-Multiple email addresses found for user_2gRua7G8WRYBglzXE5sxRbIRkfJ and multi email processing is disabled, skipping.
-(2) Could not find or create user user_2gRua7G8WRYBglzXE5sxRbIRkfJ
-(3) Imported user vlad@harkonnen.com as WorkOS User user_01HCYZ09PRH8THC7ZEDYBEJ008
-Done importing. 4 of 6 user records imported.
+Fetched 15 users.
+Fetched 5 organizations.
+(1) Skipping non-user child record idn_0123
+(2) Skipping non-user child record idn_0123
+(3) Skipping non-user child record idn_0123
+(4) Imported Clerk user user_0123 as WorkOS user user_0123
 ```
 
 ## Input file format
 
-This tool consumes the export file [obtained from Clerk support by filing a ticket](https://clerk.com/docs/deployments/exporting-users#migrating-your-users-to-a-new-system), which can include hashed passwords.
+This tool consumes the data from the clerk API, which includes hashed passwords.
 
 Note that the script will exit with an error if any custom password hashes are present.
