@@ -31,3 +31,5 @@ Fetched 5 organizations.
 This tool consumes the data from the clerk API, which includes hashed passwords.
 
 Note that the script will exit with an error if any custom password hashes are present.
+
+Note that the script will fail if the user roles are not created in WorkOS
