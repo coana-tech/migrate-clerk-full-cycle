@@ -95,6 +95,17 @@ async function main() {
     process.exit(1);
   }
 
+  if (
+    (CLERK_SECRET_KEY.includes("test_") &&
+      !WORKOS_SECRET_KEY.includes("test_")) ||
+    (!CLERK_SECRET_KEY.includes("test_") && WORKOS_SECRET_KEY.includes("test_"))
+  ) {
+    console.error(
+      "Error: Both secret keys should be test keys, should not run test data against production data."
+    );
+    process.exit(1);
+  }
+
   try {
     // Fetch data
     const users = await fetchUsers(CLERK_SECRET_KEY);

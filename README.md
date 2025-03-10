@@ -26,6 +26,14 @@ Fetched 5 organizations.
 (4) Imported Clerk user user_0123 as WorkOS user user_0123
 ```
 
+## Script sequence
+
+The script runs in the following sequence
+
+- Users are created
+- Organizations are created
+- Organization membership are created based on the previous steps
+
 ## Input file format
 
 This tool consumes the data from the clerk API, which includes hashed passwords.
