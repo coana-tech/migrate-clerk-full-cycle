@@ -1,6 +1,8 @@
-# migrate-clerk-users
+# migrate-full-cycle
 
-Tool for importing Clerk users into WorkOS, including setting password hashes.
+Tool for importing Clerk users, organizations and organization memberships into WorkOS, including setting password hashes.
+
+This tool is a forked repo from [migrate-clerk-users](https://github.com/workos/migrate-clerk-users)
 
 For more information on migrating from Clerk to WorkOS, refer to [the docs](https://workos.com/docs/migrate/clerk).
 
