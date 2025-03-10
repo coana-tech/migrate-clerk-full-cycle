@@ -111,6 +111,14 @@ async function main() {
         if (err) console.error(err);
       }
     );
+    fs.writeFile(
+      "src/files/organizations.json",
+      JSON.stringify(organizations, null, 2),
+      (err: any) => {
+        // In case of a error throw err.
+        if (err) console.error(err);
+      }
+    );
     await runScript(
       `npx migrate-clerk-users --output=${OUTPUT_PATH_USERS} --WORKOS_SECRET_KEY=${WORKOS_SECRET_KEY}`
     );
