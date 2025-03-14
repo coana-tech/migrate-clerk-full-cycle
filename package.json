@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@streamparser/json": "^0.0.21",
-    "@workos-inc/node": "^7.4.0",
+    "@workos-inc/node": "^7.41.0",
     "axios": "^1.8.1",
     "better-sqlite3": "^9.0.0",
     "dotenv": "^16.3.1",

@@ -12,8 +12,8 @@ importers:
         specifier: ^0.0.21
         version: 0.0.21
       '@workos-inc/node':
-        specifier: ^7.4.0
-        version: 7.40.0
+        specifier: ^7.41.0
+        version: 7.41.0
       axios:
         specifier: ^1.8.1
         version: 1.8.2
@@ -272,8 +272,8 @@ packages:
   '@types/yargs@17.0.33':
     resolution: {integrity: sha512-WpxBCKWPLr4xSsHgz511rFJAM+wS28w2zEO1QDNY5zM/S8ok70NNfztH0xwhqKyaK0OHCbN98LDAZuy1ctxDkA==}
 
-  '@workos-inc/node@7.40.0':
-    resolution: {integrity: sha512-3fDH0B9aAaTDsetkjhXEpikL1ZLZb6RspH0RRSPQOQl2hlZM3jTQmG6zc+gP77nRNmu9CLQnJK+WaUmIzhyOxA==}
+  '@workos-inc/node@7.41.0':
+    resolution: {integrity: sha512-CFsKL+I/xI9zVYRuzT77z+4J7BXIXH4eX96lx7vaVZitIHIs2sfb8ePwL9PipZOGaGOaRVLxfrSfgQ7M1BNgCA==}
     engines: {node: '>=16'}
 
   ansi-regex@5.0.1:
@@ -853,7 +853,7 @@ snapshots:
     dependencies:
       '@types/yargs-parser': 21.0.3
 
-  '@workos-inc/node@7.40.0':
+  '@workos-inc/node@7.41.0':
     dependencies:
       iron-session: 6.3.1
       jose: 5.6.3
