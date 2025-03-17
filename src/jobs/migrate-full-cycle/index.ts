@@ -159,6 +159,9 @@ async function main() {
 }
 
 export default function start() {
+  fs.mkdir("src/files/memberships", { recursive: true }, (err: any) => {
+    if (err) console.error(err);
+  });
   main().catch((err) => {
     console.error(err);
     process.exit(1);
