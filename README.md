@@ -1,4 +1,4 @@
-# migrate-full-cycle
+# Migrate-clerk-full-cycle
 
 Tool for importing Clerk users, organizations and organization memberships into WorkOS, including setting password hashes.
 
