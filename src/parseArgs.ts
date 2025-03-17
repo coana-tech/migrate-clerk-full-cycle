@@ -1,6 +1,7 @@
 interface Arguments {
-  output: string;
   WORKOS_SECRET_KEY: string;
+  output?: string;
+  clerkOrgId?: string;
 }
 
 export function parseArgs(args: string[]): Arguments {
@@ -13,13 +14,13 @@ export function parseArgs(args: string[]): Arguments {
       parsedArgs.WORKOS_SECRET_KEY = arg.substring(
         "--WORKOS_SECRET_KEY=".length
       );
+    } else if (arg.startsWith("--clerkOrgId=")) {
+      parsedArgs.clerkOrgId = arg.substring("--clerkOrgId=".length);
     }
   }
 
-  if (!parsedArgs.output || !parsedArgs.WORKOS_SECRET_KEY) {
-    console.error(
-      "Error: --output and --WORKOS_SECRET_KEY arguments are required."
-    );
+  if (!parsedArgs.WORKOS_SECRET_KEY) {
+    console.error("Error: ---WORKOS_SECRET_KEY argument is required.");
     process.exit(1);
   }
 

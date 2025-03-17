@@ -122,6 +122,10 @@ const MAX_CONCURRENT_USER_IMPORTS = 10;
 async function main() {
   const args = process.argv.slice(2);
   const { output } = parseArgs(args);
+  if (!output) {
+    console.error("Error: --output argument is required.");
+    process.exit(1);
+  }
 
   const queue = new Queue({ concurrency: MAX_CONCURRENT_USER_IMPORTS });
 

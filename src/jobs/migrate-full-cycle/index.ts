@@ -80,17 +80,12 @@ async function fetchOrganizationMemberships(
 async function main() {
   const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
   const WORKOS_SECRET_KEY = process.env.WORKOS_SECRET_KEY;
-  const OUTPUT_PATH_USERS = process.env.OUTPUT_PATH_USERS;
-  const OUTPUT_PATH_ORGANIZATIONS = process.env.OUTPUT_PATH_ORGANIZATIONS;
+  const OUTPUT_PATH_USERS = "./users_output.json";
+  const OUTPUT_PATH_ORGANIZATIONS = "./orgs_output.json";
 
-  if (
-    !CLERK_SECRET_KEY ||
-    !WORKOS_SECRET_KEY ||
-    !OUTPUT_PATH_USERS ||
-    !OUTPUT_PATH_ORGANIZATIONS
-  ) {
+  if (!CLERK_SECRET_KEY || !WORKOS_SECRET_KEY) {
     console.error(
-      "Error: Missing required environment variables (CLERK_SECRET_KEY, WORKOS_SECRET_KEY, output_path_1, output_path_2)."
+      "Error: Missing required environment variables (CLERK_SECRET_KEY, WORKOS_SECRET_KEY)."
     );
     process.exit(1);
   }
@@ -143,7 +138,6 @@ async function main() {
         organization.id,
         CLERK_SECRET_KEY
       );
-      console.log(memberships);
       fs.writeFile(
         `src/files/memberships/${organization.id}.json`,
         JSON.stringify(memberships, null, 2),
@@ -152,11 +146,9 @@ async function main() {
           if (err) console.error(err);
         }
       );
-      // await runScript(
-      //   `npx export-organization-memberships --output=${OUTPUT_PATH_ORGANIZATIONS}/org_${
-      //     organization.id
-      //   }.json --data='${JSON.stringify(memberships)}'`
-      // );
+      await runScript(
+        `npx migrate-clerk-org-memberships --clerkOrgId=${organization.id} --WORKOS_SECRET_KEY=${WORKOS_SECRET_KEY}`
+      );
     }
 
     console.log("Migration cycle completed successfully.");

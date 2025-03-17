@@ -16,7 +16,7 @@ dotenv.config();
 
 const USE_LOCAL_API = (process.env.NODE_ENV ?? "").startsWith("dev");
 
-type MigratedOrganizations = {
+export type MigratedOrganizations = {
   clerk: string;
   workos: string;
 };
@@ -49,9 +49,16 @@ async function createOrganization(
       );
 
     if (existingOrganization) {
+      console.log("existingOrganization", existingOrganization);
       return existingOrganization;
     }
+  } catch (error) {
+    if (error instanceof RateLimitExceededException) {
+      throw error;
+    }
+  }
 
+  try {
     return await workos.organizations.createOrganization({
       name: exportedOrganization.name ?? "",
       externalId: exportedOrganization.id,
@@ -103,6 +110,10 @@ const MAX_CONCURRENT_ORG_IMPORTS = 10;
 async function main() {
   const args = process.argv.slice(2);
   const { output } = parseArgs(args);
+  if (!output) {
+    console.error("Error: --output argument is required.");
+    process.exit(1);
+  }
 
   const queue = new Queue({ concurrency: MAX_CONCURRENT_ORG_IMPORTS });
 

@@ -14,6 +14,8 @@ import { ndjsonStream } from "../../ndjson-stream";
 import { sleep } from "../../sleep";
 import { ClerkExportedOrgMembership } from "../../schemas/clerk-exported-org-memberships";
 import { ExportedUser } from "../../schemas/exported-user";
+import { parseArgs } from "../../parseArgs";
+import { ExportedOrganization } from "../../schemas/export-organizations";
 
 type RoleTranslationType = {
   [key: string]: string;
@@ -43,15 +45,15 @@ const workos = new WorkOS(
 
 async function createOrganizationMembership(
   exportedOrgMembership: ClerkExportedOrgMembership,
-  organizationId: string,
-  workOsUserId: string
+  workOsUserId: string,
+  workOsOrganizationId: string
 ) {
   try {
     const roleSlug =
       roleTranslation[exportedOrgMembership.role ?? "basic_member"];
 
     return await workos.userManagement.createOrganizationMembership({
-      organizationId: organizationId,
+      organizationId: workOsOrganizationId,
       userId: workOsUserId,
       roleSlug,
     });
@@ -66,8 +68,8 @@ async function createOrganizationMembership(
 async function processLine(
   line: unknown,
   recordNumber: number,
-  organizationId: string,
-  exportedUsers: ExportedUser[]
+  exportedUsers: ExportedUser[],
+  exportedOrganizations: ExportedOrganization[]
 ): Promise<boolean> {
   try {
     if (typeof line === "string") {
@@ -107,10 +109,21 @@ async function processLine(
       return false;
     }
 
+    const workOsOrganizationId = exportedOrganizations.find(
+      (org) => org.clerk === exportedOrgMembership.organization?.id
+    )?.workos;
+
+    if (!workOsOrganizationId) {
+      console.error(
+        `(${recordNumber}) Could not find workos organization for clerk organization ${exportedOrgMembership.organization.id}`
+      );
+      return false;
+    }
+
     const workOsOrganizationMembership = await createOrganizationMembership(
       exportedOrgMembership,
-      organizationId,
-      workOsUserId
+      workOsUserId,
+      workOsOrganizationId
     );
     if (!workOsOrganizationMembership) {
       console.log(workOsOrganizationMembership);
@@ -121,7 +134,7 @@ async function processLine(
     }
 
     console.log(
-      `(${recordNumber}) Imported Clerk organization membership for user ${exportedOrgMembership.public_user_data.user_id} in clerk org ${exportedOrgMembership.organization.id} as WorkOS organization membership ${workOsOrganizationMembership.id} in workos organisation ${organizationId}`
+      `(${recordNumber}) Imported Clerk organization membership for user ${exportedOrgMembership.public_user_data.user_id} in clerk org ${exportedOrgMembership.organization.id} as WorkOS organization membership ${workOsOrganizationMembership.id} in workos organisation ${workOsOrganizationId}`
     );
 
     return true;
@@ -135,29 +148,13 @@ const DEFAULT_RETRY_AFTER = 10;
 const MAX_CONCURRENT_USER_IMPORTS = 10;
 
 async function main() {
-  const {
-    orgExport: orgMembershipPath,
-    workosOrgid: organizationId,
-    exportedUsers: exportedUsersPath,
-  } = await yargs(hideBin(process.argv))
-    .option("org-export", {
-      type: "string",
-      required: true,
-      description: "Path to the organization received from Clerk support.",
-    })
-    .option("workos-orgid", {
-      type: "string",
-      required: true,
-      description: "WorkOS organization ID to import into.",
-    })
-    .option("exported-users", {
-      type: "string",
-      required: true,
-      description:
-        "Path to the exported users in step -> clerk-exported-users.",
-    })
-    .version(false)
-    .parse();
+  const args = process.argv.slice(2);
+  const { clerkOrgId } = parseArgs(args);
+
+  if (!clerkOrgId) {
+    console.error("Error: --clerkOrgId argument is required.");
+    process.exit(1);
+  }
 
   const queue = new Queue({ concurrency: MAX_CONCURRENT_USER_IMPORTS });
 
@@ -165,9 +162,10 @@ async function main() {
   let completedCount = 0;
 
   let exportedUsers: ExportedUser[] = [];
+  let exportOrganizations: ExportedOrganization[] = [];
 
   try {
-    for await (const line of ndjsonStream(exportedUsersPath)) {
+    for await (const line of ndjsonStream("./users_output.json")) {
       exportedUsers.push(ExportedUser.parse(line));
     }
   } catch (error) {
@@ -176,7 +174,18 @@ async function main() {
   }
 
   try {
-    for await (const line of ndjsonStream(orgMembershipPath)) {
+    for await (const line of ndjsonStream("./orgs_output.json")) {
+      exportOrganizations.push(ExportedOrganization.parse(line));
+    }
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+
+  try {
+    for await (const line of ndjsonStream(
+      `./src/files/memberships/${clerkOrgId}.json`
+    )) {
       recordCount++;
       await queue.onSizeLessThan(MAX_CONCURRENT_USER_IMPORTS);
 
@@ -187,8 +196,8 @@ async function main() {
             const successful = await processLine(
               line,
               recordNumber,
-              organizationId,
-              exportedUsers
+              exportedUsers,
+              exportOrganizations
             );
             if (successful) {
               completedCount++;
