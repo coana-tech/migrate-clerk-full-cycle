@@ -133,27 +133,33 @@ async function main() {
     await runScript(
       `npx migrate-clerk-users --output=${OUTPUT_PATH_USERS} --WORKOS_SECRET_KEY=${WORKOS_SECRET_KEY}`
     );
-    // await runScript(
-    //   `npx export-organizations --output=${OUTPUT_PATH_ORGANIZATIONS} --data='${JSON.stringify(
-    //     organizations
-    //   )}'`
-    // );
+    await runScript(
+      `npx migrate-clerk-orgs --output=${OUTPUT_PATH_ORGANIZATIONS} --WORKOS_SECRET_KEY=${WORKOS_SECRET_KEY}`
+    );
 
     // Process organization memberships
-    // for (const organization of organizations) {
-    //   const memberships = await fetchOrganizationMemberships(
-    //     organization.id,
-    //     CLERK_SECRET_KEY
-    //   );
-    //   console.log(memberships);
-    //   //   await runScript(
-    //   //     `npx export-organization-memberships --output=${OUTPUT_PATH_ORGANIZATIONS}/org_${
-    //   //       organization.id
-    //   //     }.json --data='${JSON.stringify(memberships)}'`
-    //   //   );
-    // }
+    for (const organization of organizations) {
+      const memberships = await fetchOrganizationMemberships(
+        organization.id,
+        CLERK_SECRET_KEY
+      );
+      console.log(memberships);
+      fs.writeFile(
+        `src/files/memberships/${organization.id}.json`,
+        JSON.stringify(memberships, null, 2),
+        (err: any) => {
+          // In case of a error throw err.
+          if (err) console.error(err);
+        }
+      );
+      // await runScript(
+      //   `npx export-organization-memberships --output=${OUTPUT_PATH_ORGANIZATIONS}/org_${
+      //     organization.id
+      //   }.json --data='${JSON.stringify(memberships)}'`
+      // );
+    }
 
-    // console.log("Migration cycle completed successfully.");
+    console.log("Migration cycle completed successfully.");
   } catch (error) {
     console.error("Migration cycle failed:", error);
     process.exit(1);

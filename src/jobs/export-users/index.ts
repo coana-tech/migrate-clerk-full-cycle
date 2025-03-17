@@ -121,8 +121,7 @@ const MAX_CONCURRENT_USER_IMPORTS = 10;
 
 async function main() {
   const args = process.argv.slice(2);
-  console.log("args", args);
-  const { output, WORKOS_SECRET_KEY } = parseArgs(args);
+  const { output } = parseArgs(args);
 
   const queue = new Queue({ concurrency: MAX_CONCURRENT_USER_IMPORTS });
 

@@ -9,10 +9,17 @@ import { ClerkExportedOrganization } from "../../schemas/clerk-exported-organiza
 import { ndjsonStream } from "../../ndjson-stream";
 import { sleep } from "../../sleep";
 import * as fs from "fs";
+import { parseArgs } from "../../parseArgs";
+import path from "path";
 
 dotenv.config();
 
 const USE_LOCAL_API = (process.env.NODE_ENV ?? "").startsWith("dev");
+
+type MigratedOrganizations = {
+  clerk: string;
+  workos: string;
+};
 
 const workos = new WorkOS(
   process.env.WORKOS_SECRET_KEY,
@@ -36,8 +43,18 @@ async function createOrganization(
   }
 
   try {
+    const existingOrganization =
+      await workos.organizations.getOrganizationByExternalId(
+        exportedOrganization.id
+      );
+
+    if (existingOrganization) {
+      return existingOrganization;
+    }
+
     return await workos.organizations.createOrganization({
       name: exportedOrganization.name ?? "",
+      externalId: exportedOrganization.id,
     });
   } catch (error) {
     if (error instanceof RateLimitExceededException) {
@@ -49,7 +66,7 @@ async function createOrganization(
 async function processLine(
   line: unknown,
   recordNumber: number
-): Promise<boolean> {
+): Promise<MigratedOrganizations | boolean> {
   const exportedOrganization = ClerkExportedOrganization.parse(line);
 
   if (
@@ -65,7 +82,7 @@ async function processLine(
   const workOsOrganization = await createOrganization(exportedOrganization);
   if (!workOsOrganization) {
     console.error(
-      `(${recordNumber}) Could not find or create organization ${exportedOrganization.id}`
+      `(${recordNumber}) Could not create organization ${exportedOrganization.id}`
     );
     return false;
   }
@@ -74,53 +91,39 @@ async function processLine(
     `(${recordNumber}) Imported Clerk organization ${exportedOrganization.name} ${exportedOrganization.id} as WorkOS organization ${workOsOrganization.id}`
   );
 
-  // Data which will be appended to the file.
-  let newData = `{"clerk":"${exportedOrganization.id}","workos":"${workOsOrganization.id}"},`;
-  // Append old and new id entry.
-  fs.appendFile("output-orgs.json", newData, (err: any) => {
-    // In case of a error throw err.
-    if (err) console.error(err);
-  });
-
-  return true;
+  return {
+    clerk: workOsOrganization.externalId ?? "",
+    workos: workOsOrganization.id,
+  };
 }
 
 const DEFAULT_RETRY_AFTER = 10;
-const MAX_CONCURRENT_USER_IMPORTS = 10;
+const MAX_CONCURRENT_ORG_IMPORTS = 10;
 
 async function main() {
-  const { orgExport: userFilePath, processMultiEmail } = await yargs(
-    hideBin(process.argv)
-  )
-    .option("org-export", {
-      type: "string",
-      required: true,
-      description: "Path to the organization received from Clerk support.",
-    })
-    .version(false)
-    .parse();
+  const args = process.argv.slice(2);
+  const { output } = parseArgs(args);
 
-  fs.appendFile("output-orgs.json", "[", (err: any) => {
-    // In case of a error throw err.
-    if (err) console.error(err);
-  });
-
-  const queue = new Queue({ concurrency: MAX_CONCURRENT_USER_IMPORTS });
+  const queue = new Queue({ concurrency: MAX_CONCURRENT_ORG_IMPORTS });
 
   let recordCount = 0;
   let completedCount = 0;
 
+  const organizations: MigratedOrganizations[] = [];
+
   try {
-    for await (const line of ndjsonStream(userFilePath)) {
+    const outputPath = path.resolve(output); // Ensure absolute path
+    for await (const line of ndjsonStream("./src/files/organizations.json")) {
       recordCount++;
-      await queue.onSizeLessThan(MAX_CONCURRENT_USER_IMPORTS);
+      await queue.onSizeLessThan(MAX_CONCURRENT_ORG_IMPORTS);
 
       const recordNumber = recordCount;
       const enqueueTask = () =>
         queue
           .add(async () => {
             const successful = await processLine(line, recordNumber);
-            if (successful) {
+            if (successful !== false) {
+              organizations.push(successful as MigratedOrganizations);
               completedCount++;
             }
           })
@@ -146,10 +149,14 @@ async function main() {
 
     await queue.onIdle();
 
-    fs.appendFile("output-orgs.json", "{}]", (err: any) => {
-      // In case of a error throw err.
-      if (err) console.error(err);
-    });
+    fs.writeFile(
+      outputPath,
+      JSON.stringify(organizations, null, 2),
+      (err: any) => {
+        // In case of a error throw err.
+        if (err) console.error(err);
+      }
+    );
 
     console.log(
       `Done importing. ${completedCount} of ${recordCount} records imported.`
