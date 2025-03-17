@@ -92,9 +92,9 @@ async function processLine(
   const exportedUser = ClerkExportedUser.parse(line);
 
   if (!exportedUser.object || exportedUser.object !== "user") {
-    console.log(
-      `(${recordNumber}) Skipping non-user child record ${exportedUser.id}`
-    );
+    // console.log(
+    //   `(${recordNumber}) Skipping non-user child record ${exportedUser.id}`
+    // );
     return false;
   }
 
@@ -176,9 +176,7 @@ async function main() {
       // In case of a error throw err.
       if (err) console.error(err);
     });
-    console.log(
-      `Done importing. ${completedCount} of ${recordCount} records imported.`
-    );
+    console.log(`Done importing. ${completedCount} users imported.`);
   } finally {
   }
 }

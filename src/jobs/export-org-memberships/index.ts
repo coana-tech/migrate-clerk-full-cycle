@@ -73,7 +73,7 @@ async function processLine(
 ): Promise<boolean> {
   try {
     if (typeof line === "string") {
-      console.log(`skip line ${recordNumber} because it is a string`);
+      // console.log(`skip line ${recordNumber} because it is a string`);
       return false;
     }
     const exportedOrgMembership = ClerkExportedOrgMembership.parse(line);
@@ -82,9 +82,9 @@ async function processLine(
       !exportedOrgMembership.object ||
       exportedOrgMembership.object !== "organization_membership"
     ) {
-      console.log(
-        `(${recordNumber}) Skipping non-org child record ${exportedOrgMembership.id}`
-      );
+      // console.log(
+      //   `(${recordNumber}) Skipping non-org child record ${exportedOrgMembership.id}`
+      // );
       return false;
     }
 
@@ -126,7 +126,6 @@ async function processLine(
       workOsOrganizationId
     );
     if (!workOsOrganizationMembership) {
-      console.log(workOsOrganizationMembership);
       console.error(
         `(${recordNumber}) Could not find or create organization member ship for user clerkId: ${exportedOrgMembership.public_user_data.user_id} workOSId: ${workOsUserId} in clerk organization ${exportedOrgMembership.organization.id}`
       );
@@ -227,7 +226,7 @@ async function main() {
     await queue.onIdle();
 
     console.log(
-      `Done importing. ${completedCount} of ${recordCount} records imported.`
+      `Done importing. ${completedCount} organization membership(s) imported.`
     );
   } finally {
   }

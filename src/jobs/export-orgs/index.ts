@@ -49,7 +49,6 @@ async function createOrganization(
       );
 
     if (existingOrganization) {
-      console.log("existingOrganization", existingOrganization);
       return existingOrganization;
     }
   } catch (error) {
@@ -80,9 +79,9 @@ async function processLine(
     !exportedOrganization.object ||
     exportedOrganization.object !== "organization"
   ) {
-    console.log(
-      `(${recordNumber}) Skipping non-org child record ${exportedOrganization.id}`
-    );
+    // console.log(
+    //   `(${recordNumber}) Skipping non-org child record ${exportedOrganization.id}`
+    // );
     return false;
   }
 
@@ -169,9 +168,7 @@ async function main() {
       }
     );
 
-    console.log(
-      `Done importing. ${completedCount} of ${recordCount} records imported.`
-    );
+    console.log(`Done importing. ${completedCount} organizations imported.`);
   } finally {
   }
 }
